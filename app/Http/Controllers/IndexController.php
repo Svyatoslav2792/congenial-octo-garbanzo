@@ -10,6 +10,7 @@ use App\People;
 use Illuminate\Support\Facades\DB;
 use Mail;
 
+
 class IndexController extends Controller
 {
     public function execute(Request $request){
@@ -22,20 +23,43 @@ class IndexController extends Controller
             ];
 
             $this->validate($request,[
-            'name'=>'required|max:255',
-            'email'=>'required|email',
-            'text'=>'required',
                 'g-recaptcha-response'=>'required',
             ],$messages);
 
+            //
+            //проверка рекапчи
+            if( $curl = curl_init() ) {
+                $post_data=[
+                    'secret'=>'6LdjW84UAAAAADqn7c5p6qlxgF95XwEYo5LT7KcF',
+                    'response'=>$request['g-recaptcha-response'],
+                ];
+                curl_setopt($curl, CURLOPT_URL, "https://www.google.com/recaptcha/api/siteverify");
+                curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+                curl_setopt($curl, CURLOPT_RETURNTRANSFER,true);
+                curl_setopt($curl, CURLINFO_HEADER_OUT, true);
+                curl_setopt($curl, CURLOPT_POST, true);
+                curl_setopt($curl, CURLOPT_POSTFIELDS, $post_data);
+                $out = curl_exec($curl);
+                curl_close($curl);
+                if (strpos($out,'true')!=false)
+                {
+                    $this->validate($request,[
+                        'name'=>'required|max:255',
+                        'email'=>'required|email',
+                        'text'=>'required',
+                    ],$messages);
+                }
+
+            }
 
             $data=$request->all();
             Mail::send( 'site.email',['data'=>$data],function ($message) use ($data){
                 $message->to('fastfighter92@gmail.com')->subject('Письмо с сайта');
                 $message->from('mamkin.raketchik@mail.ru',$data['name']);
             });
-
             $request->session()->flash('status', 'Письмо отправлено');
+
             return redirect()->route('home');
 
 
